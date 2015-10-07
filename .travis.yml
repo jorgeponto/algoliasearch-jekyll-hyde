@@ -4,6 +4,7 @@ branches:
   only:
     - gh-pages
 script: 
+  - '[ "${TRAVIS_PULL_REQUEST}" = "false" ]'
   - bundle exec jekyll algolia push
 rvm:
  - 2.2
