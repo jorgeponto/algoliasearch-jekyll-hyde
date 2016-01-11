@@ -1,10 +1,8 @@
 # Dependencies
 markdown:         redcarpet
-highlighter:      pygments
 
 # Permalinks
 permalink:        pretty
-relative_permalinks: true
 
 # Setup
 title:            Hyde
@@ -35,6 +33,7 @@ github:
 # Algolia
 gems:
   - algoliasearch-jekyll
+  - jekyll-paginate
 
 algolia:
   application_id: 'latency'
