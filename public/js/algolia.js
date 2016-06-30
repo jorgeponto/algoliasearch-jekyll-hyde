@@ -1,111 +1,141 @@
-// Init the search box
-$(function(config) {
+(function(config){
   'use strict';
+  var JekyllAlgolia = {
+    init: function() {
+      this.client = algoliasearch(config.applicationId, config.apiKey); // Algolia client
+      this.helper = algoliasearchHelper(this.client, config.indexName); // Algolia Helper
 
-  var applicationId = config.applicationId;
-  var apiKey = config.apiKey;
-  var indexName = config.indexName;
+      this.$searchBox = $(config.searchBoxSelector); // <input> search box
+      this.$searchResultsContainer = $(config.searchResultsSelector); // Where to display the results
 
-  var algolia = algoliasearch(applicationId, apiKey);
-  var helper = algoliasearchHelper(algolia, indexName);
-  helper.setQueryParameter('distinct', true);
-  helper.on('result', onResult);
+      // Each record is a paragraph, so we need to group them by parent
+      // page/post
+      this.helper.setQueryParameter('distinct', true);
+      // Listen to each keystroke in the search box
+      this.$searchBox.on('keyup', JekyllAlgolia.onQueryChange);
+      // Callback on each new results
+      this.helper.on('result', JekyllAlgolia.onResult);
+      // result template
+      this.templateResult = Hogan.compile($(config.templateResultSelector).html());
+      // Init the search result element
+      this.initSearchResultsElement();
+    },
 
-  // Input listening for queries
-  var $searchInput = $('.js-algolia__input');
-  $searchInput.on('keyup', onQueryChange);
+    // The search results element will keep displaying its default content on
+    // page load, but will display results when a search is activated
+    initSearchResultsElement: function() {
+      // We create a new wrapper around the initial content
+      var initialContentHolder = $('<div class="ajs-results--initial"></div>');
+      this.$searchResultsContainer.children().appendTo(initialContentHolder);
+      initialContentHolder.appendTo(this.$searchResultsContainer);
 
-  // Content to hide/show when searching
-  var $initialContent = $('.js-algolia__initial-content');
-  var $searchContent = $('.js-algolia__search-content');
-  var $searchContentResults = $searchContent.find('.algolia__results');
-  $searchContentResults.on('click', 'a', onLinkClick);
-  // Rendering templates
-  var templateResult = Hogan.compile($('#algolia__template').html());
-  var templateNoResults = $('#algolia__template--no-results').html();
+      // We add a wrapper for displaying results
+      var searchContentHolder = $('<div class="ajs-results--search"></div>');
+      searchContentHolder.appendTo(this.$searchResultsContainer);
+      // We handle clicks on link in the search results in a specific manner
+      searchContentHolder.on('click', 'a', JekyllAlgolia.onLinkClick);
 
-  var lastQuery;
+      // Expose the DOM elements in the whole object
+      this.$initialContent = initialContentHolder;
+      this.$searchContent = searchContentHolder;
+    },
 
-  // Toggle result page
-  function showResults() {
-    window.scroll(0, 0);
-    $initialContent.addClass('algolia__initial-content--hidden');
-    $searchContent.addClass('algolia__search-content--active');
+    // Called everytime a new character is added or removed to the search box
+    onQueryChange: function() {
+      // We get the current value of the searchbox and expose it
+      var currentQuery = JekyllAlgolia.$searchBox.val();
+      JekyllAlgolia.currentQuery = currentQuery;
 
-  }
-  function hideResults() {
-    $initialContent.removeClass('algolia__initial-content--hidden');
-    $searchContent.removeClass('algolia__search-content--active');
-  }
-
-  // Handle typing query
-  function onQueryChange() {
-    lastQuery = $(this).val();
-    if (lastQuery.length === 0) {
-      hideResults();
-      return false;
-    }
-    helper.setQuery(lastQuery).search();
-    showResults();
-  }
-
-  function onResult(data) {
-    // Avoid race conditions, discard results that do not match the latest query
-    if (data.query !== lastQuery) {
-      return false;
-    }
-    var content = data.nbHits ? renderResults(data) : templateNoResults;
-    $searchContentResults.html(content);
-  }
-
-  function renderResults(data) {
-    return $.map(data.hits, function(hit) {
-      if (hit.posted_at) {
-        hit.posted_at_readable = moment.unix(hit.posted_at).fromNow();
+      // If it's empty, we revert to display the initial content instead of the
+      // results
+      if (!currentQuery.length) {
+        JekyllAlgolia.hideResults();
+        return false;
       }
-      hit.css_selector = encodeURI(hit.css_selector);
-      hit.full_url = config.baseurl + hit.url;
 
-      return templateResult.render(hit);
-    }).join('');
-  }
+      // Start a search with this query
+      JekyllAlgolia.helper.setQuery(currentQuery).search();
+    },
+    // Called everytime a new set of results is received from the API
+    onResult: function(data) {
+       // Request being asynchronous, this callback might not be called in the
+       // same order as the onQueryChange that started it. To avoid race
+       // conditions, we simply discard callbacks that do not match the current
+       // query
+      if (data.query !== JekyllAlgolia.currentQuery) {
+        return false;
+      }
 
-  // Scroll page to correct element
-  function getAnchorSelector(hash) {
-    var anchor = hash.substring(1);
-    if (!anchor.match(/^algolia:/)) {
-      return false;
+      JekyllAlgolia.showResults();
+
+      var hasResults = data.nbHits > 0;
+      if (!hasResults) {
+        JekyllAlgolia.displayNoResults();
+      } else {
+        JekyllAlgolia.displayResults(data.hits);
+      }
+    },
+    // Clicking on a link of a search results need to be handled specifically
+    onLinkClick: function(event) {
+      var currentPathName = window.location.pathname;
+      var linkPathName = event.target.pathname;
+      // If following a link to another page, follow it normally
+      if (currentPathName !== linkPathName) {
+        return true;
+      }
+
+      // If link to same page, we reset the search and hide the results
+      JekyllAlgolia.$searchBox.val('');
+      JekyllAlgolia.hideResults();
+    },
+    // Hide the search results and show the initial content
+    hideResults: function() {
+      JekyllAlgolia.$searchContent.hide();
+      JekyllAlgolia.$initialContent.show();
+    },
+    // Show the search results and hide the initial content
+    showResults: function() {
+      JekyllAlgolia.$initialContent.hide();
+      JekyllAlgolia.$searchContent.show();
+    },
+    // Display the "Sorry, no results"
+    displayNoResults: function() {
+      JekyllAlgolia.$searchContent.html('No results found.');
+    },
+    // Display the list of results
+    displayResults: function(results) {
+      var content = $.map(results, function(hit) {
+        // We use the full url for the link
+        var url = config.baseUrl + hit.url;
+        if (hit.anchor) {
+          url += '#' + hit.anchor;
+        }
+
+        // We convert the date to a readable version
+        var date = null;
+        if (hit.date) {
+          date = moment.unix(hit.date).fromNow();
+        }
+
+        // We use highlighted versions of the title
+        var title = hit._highlightResult.title.value;
+
+        // We use snippeted version of the text
+        var text = hit._snippetResult.text.value;
+
+        return JekyllAlgolia.templateResult.render({
+          url: url,
+          title: title,
+          date: date,
+          text: text
+        });
+      });
+
+      JekyllAlgolia.$searchContent.html(content.join('\n'));
     }
-    return decodeURI(anchor.replace(/^algolia:/, ''));
-  }
+  };
 
-  function scrollPageToSelector(selector) {
-    var target = $('.page,.post').find(selector);
-    var targetOffset = target[0].getBoundingClientRect().top + window.pageYOffset - 20;
-    window.setTimeout(function() {
-      window.scroll(0, targetOffset);
-    }, 100);
-  }
-
-  function onLinkClick(event) {
-    var selector = getAnchorSelector(event.target.hash);
-    // Normal link, going to another page
-    if (event.target.pathname !== window.location.pathname || !selector) {
-      return true;
-    }
-    // Scrolling to a result on the same page
-    hideResults();
-    scrollPageToSelector(selector);
-    event.preventDefault();
-    return false;
-  }
-
-  window.setTimeout(function() {
-    var selector = getAnchorSelector(window.location.hash);
-    if (selector) {
-      scrollPageToSelector(selector);
-    }
-  }, 100);
-
-
+  $(function() {
+    JekyllAlgolia.init(config);
+  });
 }(window.ALGOLIA_CONFIG));

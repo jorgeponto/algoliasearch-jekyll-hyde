@@ -1,5 +1,7 @@
+
+
 # Dependencies
-markdown:         redcarpet
+# markdown:         redcarpet
 highlighter:      pygments
 
 # Permalinks
@@ -37,9 +39,20 @@ gems:
   - algoliasearch-jekyll
 
 algolia:
-  application_id: 'latency'
-  index_name: 'jekyll'
-  read_only_api_key: '6be0576ff61c053d5f9a3225e2a90f76'
-  excluded_files:
-    - 404.html
-    - index.html
+  application_id: 'MXM0JWJNIW'
+  index_name: 'jekyll_v1'
+  settings:
+    highlightPreTag: '<span class="ajs-highlight">'
+    highlightPostTag: '</span>'
+    attributesToSnippet: ['text:40']
+    snippetEllipsisText: '…'
+    attributesToRetrieve:
+      - anchor
+      - date
+      - text
+      - title
+      - url
+  read_only_api_key: 'ff7b0847d8705c279222272303e68527'
+  search_box_selector: '.ajs-searchbox'
+  search_results_selector: '.ajs-results'
+  template_result_selector: '.ajs-template-result'

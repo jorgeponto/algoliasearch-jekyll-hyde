@@ -3,22 +3,22 @@
     'applicationId': '{{ site.algolia.application_id }}',
     'indexName': '{{ site.algolia.index_name }}',
     'apiKey': '{{ site.algolia.read_only_api_key }}',
-    'baseurl': '{{ site.baseurl }}'
+    'baseUrl': '{{ site.baseurl }}',
+    'searchBoxSelector': '{{ site.algolia.search_box_selector }}',
+    'searchResultsSelector': '{{ site.algolia.search_results_selector }}',
+    'templateResultSelector': '{{ site.algolia.template_result_selector }}'
   }
 </script>
-<script id="algolia__template" type="text/template">
+<script class="ajs-template-result" type="text/template">
 {% raw %}
-  <div class="algolia__result">
-    <a class="algolia__result-link" href="{{ full_url }}#algolia:{{ css_selector }}">{{{ _highlightResult.title.value }}}</a>
-    {{#posted_at}}
-    <div class="algolia__result-date">{{ posted_at_readable }}</div>
-    {{/posted_at}}
-    <div class="algolia__result-text">{{{ _highlightResult.text.value }}}</div>
+  <div class="ajs-result">
+    <a class="ajs-result--title" href="{{ url }}">{{{ title }}}</a>
+    {{#date}}<div class="ajs-result--date">{{ date }}</div>{{/date}}
+    <div class="ajs-result--text">{{{ text }}}</div>
   </div>
 {% endraw %}
 </script>
-<script id="algolia__template--no-results" type="text/template">
-  No results found.
+<script class="ajs-template-no-results" type="text/template">
 </script>
 <script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
 <script src="//cdn.jsdelivr.net/algoliasearch/3.6.0/algoliasearch.min.js"></script>
